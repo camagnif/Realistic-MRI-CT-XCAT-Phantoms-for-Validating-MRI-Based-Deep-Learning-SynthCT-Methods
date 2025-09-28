@@ -99,14 +99,14 @@ def edge_ratios(img1, img2, threshold=0.8):
     img1_edges = tf.nn.conv2d(np.expand_dims(img1, 0), tf.expand_dims(tf.expand_dims(sobel_filter, -1), -1), strides=[1, 1, 1, 1], padding='SAME')
     img2_edges = tf.nn.conv2d(np.expand_dims(img2, 0), tf.expand_dims(tf.expand_dims(sobel_filter, -1), -1), strides=[1, 1, 1, 1], padding='SAME')
 
-    # edges are positive and negative, need abs since I will then apply a threshold for binary imgs
+    # edges are positive and negative
     edge_gt = np.abs(tf.squeeze(img1_edges))
     edge_pred = np.abs(tf.squeeze(img2_edges))
     _, binary_img_gt = cv2.threshold(edge_gt, threshold, 1, cv2.THRESH_BINARY)
     _, binary_img_pred = cv2.threshold(edge_pred, threshold, 1, cv2.THRESH_BINARY)
     inter = cv2.bitwise_and(binary_img_gt, binary_img_pred) # edge map in common between edges1 and edges2
     inter = np.abs(inter)
-    _, binary_img_inter = cv2.threshold(inter, threshold * 0.625, 1, cv2.THRESH_BINARY)  # 0.625 è un valore approssimato per mantenere l'intersezione valida
+    _, binary_img_inter = cv2.threshold(inter, threshold * 0.625, 1, cv2.THRESH_BINARY)
     
     # compute number of pixels = 1 belonging to edges
     tot_gt = np.sum(binary_img_gt)
@@ -888,5 +888,6 @@ print('FSIM medio vale ', np.mean(FSIM_list), ' con std ', np.std(FSIM_list))
 print('EPR medio vale ', np.mean(EPR_list), ' con std ', np.std(EPR_list))
 print('EGR medio vale ', np.mean(EGR_list), ' con std ', np.std(EGR_list))
 print('MAE medio vale ', np.mean(MAE_list), ' con std ', np.std(MAE_list))
+
 
 

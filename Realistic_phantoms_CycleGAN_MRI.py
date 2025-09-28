@@ -388,8 +388,8 @@ def plot_metrics(dict_for, dict_back, epoch):
 
 #____________________________IMPORT_DATASET_AND_CHECK_PATCHES__________________
 
-desired = 'COMBAT' # or MRI
-file_to_check = desired + '_dataset_CycleGAN_test.h5'
+desired = 'MRI' # or MRI
+file_to_check = desired + '_dataset_CycleGAN_train.h5'
 
 h5f = h5py.File(folder_hdf5 + file_to_check, 'r')
 list(h5f.keys())

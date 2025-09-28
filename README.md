@@ -1,13 +1,15 @@
 # Realistic-MRI-CT-XCAT-Phantoms-for-Validating-MRI-Based-Deep-Learning-SynthCT-Methods
 
 This repository contains code corresponding to the implementation described in:
-
 Camagni, F., Nakas, A., & Paganelli, C. (2025). [Generation of multimodal realistic computational phantoms as a test-bed for validating deep learning-based cross-modality synthesis techniques.](https://doi.org/10.1007/s11517-025-03437-4)  
-
 Please refer to the paper for detailed methodology and experimental context.
 
-This project addresses the lack of high-quality paired datasets for multimodal deep learning in medical imaging by offering a synthetic yet realistic validation dataset. It bridges the gap between synthetic and clinical data, enabling more robust and meaningful evaluation of AI models for medical image synthesis.
+This repository contains code for generating realistic multimodal (i.e., CT and MRI) computational phantoms to validate AI models. Traditional phantoms often fail to capture the continuous, noisy, and heterogeneous characteristics of clinical data, causing artifacts and inflated error metrics when evaluating GAN-based models trained on patient data.
 
-This is the code for the paper "Generation of multimodal realistic computational phantoms as a test-bed for validating Deep Learning-based cross-modality synthesis techniques" submitted to MBEC 2025. 
+Key contributions:
+- Creation of multimodal phantom datasets using CycleGANs that statistically resemble clinical data while retaining known ground truth.
+- Evaluation of generated data through paired and unpaired assessments.
+- Providing a controlled, realistic test set for synthetic CT generation models trained on real abdominal MRI, bridging the gap between synthetic and real domains.
 
-Paper:
+
+

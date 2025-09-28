@@ -665,6 +665,7 @@ def merge_HU(predTensor):
     ctnew = 0.5*(100-(0))*(ct+1) + (0)  
     return ctnew
 
+#%%
 #__________________________________CYCLEGAN____________________________________
 
 input_img_size = (256,256,1)
@@ -756,6 +757,119 @@ def get_resnet_generator(filters=64, num_downsampling_blocks=2, num_residual_blo
     model = keras.models.Model(img_input, x)
     return model
 
+#%%
+#___________________________________NEW_CYCLEGAN_______________________________
+
+input_img_size = (256,256,1)
+
+class ReflectionPadding2D(layers.Layer):
+
+    def __init__(self, padding=(1, 1), **kwargs):
+        self.padding = tuple(padding)
+        super(ReflectionPadding2D, self).__init__(**kwargs)
+
+    def call(self, input_tensor, mask=None):
+        padding_width, padding_height = self.padding
+        padding_tensor = [
+            [0, 0],
+            [padding_height, padding_height],
+            [padding_width, padding_width],
+            [0, 0],
+        ]
+        return tf.pad(input_tensor, padding_tensor, mode="REFLECT")
+
+# Weights initializer for the layers
+kernel_init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
+# Gamma initializer for instance normalization
+gamma_init = keras.initializers.RandomNormal(mean=0.0, stddev=0.02)
+
+def residual_block(x, activation, kernel_initializer=kernel_init, kernel_size=(3, 3), strides=(1, 1), padding="valid", gamma_initializer=gamma_init, use_bias=False):
+    dim = x.shape[-1]
+    input_tensor = x
+
+    x = ReflectionPadding2D()(input_tensor)
+    x = layers.Conv2D(dim, kernel_size, strides=strides, kernel_initializer=kernel_initializer, padding=padding, use_bias=use_bias)(x)
+    x = GroupNormalization(groups=-1,gamma_initializer=gamma_initializer)(x)
+    x = activation(x)
+
+    x = ReflectionPadding2D()(x)
+    x = layers.Conv2D(dim, kernel_size, strides=strides, kernel_initializer=kernel_initializer, padding=padding, use_bias=use_bias)(x)
+    x = GroupNormalization(groups=-1,gamma_initializer=gamma_initializer)(x)
+    x = layers.add([input_tensor, x])
+    return x
+
+
+def downsample(x, filters, activation, kernel_initializer=kernel_init, kernel_size=(3, 3), strides=(2, 2), padding="same", gamma_initializer=gamma_init, use_bias=False): 
+    x = layers.Conv2D(filters, kernel_size, strides=strides, kernel_initializer=kernel_initializer, padding=padding, use_bias=use_bias)(x)
+    x = GroupNormalization(groups=-1,gamma_initializer=gamma_initializer)(x)
+    if activation:
+        x = activation(x)
+    return x
+
+
+def upsample(x, filters, activation, kernel_size=(3, 3), strides=(1, 1), padding="valid", kernel_initializer=kernel_init, gamma_initializer=gamma_init, use_bias=False):
+    #dim = x.shape[-1]
+    #x = layers.UpSampling2D(size=(2, 2), interpolation="bilinear")(x)
+    x = layers.Conv2DTranspose(filters, kernel_size=3, strides=2, padding='same')(x)
+    x = ReflectionPadding2D()(x)
+    x = layers.Conv2D(filters, kernel_size, strides=strides, kernel_initializer=kernel_initializer, padding=padding, use_bias=use_bias)(x)
+    x = GroupNormalization(groups=-1,gamma_initializer=gamma_initializer)(x)
+    x = activation(x)
+    return x
+
+
+def get_resnet_generator(filters=64, num_downsampling_blocks=1, num_residual_blocks=6, num_upsample_blocks=1, gamma_initializer=gamma_init):
+    img_input = layers.Input(shape=input_img_size)
+    #mask = layers.Input(shape=input_img_size)
+    x = ReflectionPadding2D(padding=(3, 3))(img_input)
+    x = layers.Conv2D(filters, (7, 7), kernel_initializer=kernel_init, use_bias=False)(x)
+    x = GroupNormalization(groups=-1,gamma_initializer=gamma_initializer)(x)
+    x = layers.Activation("relu")(x)
+
+    # Downsampling
+    for _ in range(num_downsampling_blocks):
+        filters *= 2
+        x = downsample(x, filters=filters, activation=layers.Activation("relu"))
+
+    # Residual blocks
+    for _ in range(num_residual_blocks):
+        x = residual_block(x, activation=layers.Activation("relu"))
+
+    # Upsampling
+    for _ in range(num_upsample_blocks):
+        filters //= 2
+        x = upsample(x, filters=filters, activation=layers.Activation("relu"))
+
+    # Final block
+    x = ReflectionPadding2D(padding=(3, 3))(x)
+    x = layers.Conv2D(1, (7, 7), padding="valid")(x)
+    x = layers.Activation("tanh")(x)
+    #x = Multiply()([x, mask])
+
+    model = keras.models.Model(img_input, x)
+    return model
+
+
+def get_discriminator(filters=64, kernel_initializer=kernel_init, num_downsampling=3):
+    img_input = layers.Input(shape=input_img_size)
+    x = layers.Conv2D(filters,(4, 4), strides=(2, 2), padding="same", kernel_initializer=kernel_initializer)(img_input)
+    x = layers.LeakyReLU(0.2)(x)
+
+    num_filters = filters
+    for num_downsample_block in range(3):
+        num_filters *= 2
+        if num_downsample_block < 2:
+            x = downsample(x, filters=num_filters, activation=layers.LeakyReLU(0.2), kernel_size=(4, 4), strides=(2, 2))
+        else:
+            x = downsample(x, filters=num_filters, activation=layers.LeakyReLU(0.2), kernel_size=(4, 4), strides=(1, 1))
+
+    x = layers.Conv2D(1, (4, 4), strides=(1, 1), padding="same", kernel_initializer=kernel_initializer)(x)
+
+    model = keras.models.Model(inputs=img_input, outputs=x)
+    return model
+
+
+#%%
 #_________________________________INITIALIZATION_______________________________
 
 input_img_size = (256,256,1)
@@ -888,6 +1002,7 @@ print('FSIM medio vale ', np.mean(FSIM_list), ' con std ', np.std(FSIM_list))
 print('EPR medio vale ', np.mean(EPR_list), ' con std ', np.std(EPR_list))
 print('EGR medio vale ', np.mean(EGR_list), ' con std ', np.std(EGR_list))
 print('MAE medio vale ', np.mean(MAE_list), ' con std ', np.std(MAE_list))
+
 
 
 
